@@ -1,0 +1,75 @@
+# Render Blueprint — deploys backend, authservice, frontend, and a free
+# Redis (Key Value) instance from this repo's Dockerfiles. Postgres is NOT
+# defined here: using an external Neon database instead (Render's own free
+# Postgres expires after 30 days; Neon's free tier doesn't).
+#
+# Deploy: push this repo to GitHub, then in the Render dashboard choose
+# "New > Blueprint" and point it at the repo. Render reads this file and
+# creates everything below. DATABASE_URL (backend and authservice) and
+# JWT_SECRET are marked sync:false — set those manually in the dashboard
+# after the Neon project exists, since they're not something to commit.
+
+services:
+  - name: backend
+    type: web
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Backend/Dockerfile
+    dockerContext: ./Backend
+    envVars:
+      - key: DATABASE_URL
+        sync: false # Neon connection string, set manually
+      - key: JWT_SECRET
+        sync: false # must match authservice's
+      - key: CORS_ORIGINS
+        value: "https://frontend-epc1.onrender.com"
+      - key: REDIS_HOST
+        fromService:
+          name: swiggy-redis
+          type: keyvalue
+          property: host
+      - key: REDIS_PORT
+        fromService:
+          name: swiggy-redis
+          type: keyvalue
+          property: port
+
+  - name: authservice
+    type: web
+    runtime: docker
+    plan: free
+    dockerfilePath: ./AuthService/Dockerfile
+    dockerContext: ./AuthService
+    envVars:
+      - key: DATABASE_URL
+        sync: false # same Neon connection string, PLUS ?schema=auth
+      - key: JWT_SECRET
+        sync: false # same value as backend's
+      - key: JWT_EXPIRES_IN
+        value: 1h
+      - key: CORS_ORIGINS
+        value: "https://frontend-epc1.onrender.com"
+
+  - name: frontend
+    type: web
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Frontend/Swiggy_Clone/Dockerfile
+    dockerContext: ./Frontend/Swiggy_Clone
+    envVars:
+      # Render automatically exposes a Docker-runtime service's envVars as
+      # --build-arg values during the image build — that's what carries
+      # these into the Dockerfile's ARG REACT_APP_API_URL/ARG
+      # REACT_APP_AUTH_URL, which CRA then bakes into the JS bundle. Fill
+      # in backend/authservice's actual Render URLs once they exist, then
+      # redeploy this service (a plain env var change alone won't update
+      # an already-built bundle — this one needs a real rebuild).
+      - key: REACT_APP_API_URL
+        value: "https://backend-yje1.onrender.com"
+      - key: REACT_APP_AUTH_URL
+        value: "https://authservice-rx46.onrender.com"
+
+  - name: swiggy-redis
+    type: keyvalue
+    plan: free
+    ipAllowList: []

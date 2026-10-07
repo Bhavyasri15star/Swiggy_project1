@@ -1,0 +1,114 @@
+name: CI
+
+# Runs on the GitHub mirror (this repo's primary remote is Azure DevOps —
+# see DEPLOY.md for why a GitHub copy exists). No automated test suite
+# exists yet (see README.md), so this focuses on what actually catches
+# real problems today: does each service's code import/compile cleanly,
+# does the frontend's production build succeed, and — the part nothing
+# has verified before, since Docker isn't installed on the dev machine —
+# do all three Dockerfiles actually build.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: swiggy_user
+          POSTGRES_PASSWORD: "12345"
+          POSTGRES_DB: swiggy_clone
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U swiggy_user -d swiggy_clone"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://swiggy_user:12345@localhost:5432/swiggy_clone
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install -r Backend/requirements.txt -r Backend/requirements-dev.txt
+      - name: Compile-check every module
+        run: |
+          cd Backend
+          python -m py_compile main.py migrate_data.py docker-entrypoint.py \
+            core/*.py repositories/*.py middleware/*.py \
+            alembic/env.py alembic/versions/*.py
+      - name: Import the app (catches wiring errors py_compile can't)
+        run: |
+          cd Backend
+          python -c "import main; print('main:app imports cleanly')"
+      - name: Run test suite
+        run: |
+          cd Backend
+          python -m pytest -v
+
+  authservice:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+        working-directory: AuthService
+      - run: npx prisma generate
+        working-directory: AuthService
+      - name: Syntax-check every source file
+        run: |
+          cd AuthService
+          for f in src/index.js src/lib/*.js src/middleware/*.js src/routes/*.js; do
+            node --check "$f"
+          done
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci --legacy-peer-deps
+        working-directory: Frontend/Swiggy_Clone
+      - name: Production build
+        run: npm run build
+        working-directory: Frontend/Swiggy_Clone
+        env:
+          # Placeholder values — CRA just needs *something* to build;
+          # the real values are supplied at Render's build-arg step.
+          REACT_APP_API_URL: http://localhost:8000
+          REACT_APP_AUTH_URL: http://localhost:4000
+          # GitHub Actions sets CI=true by default, which makes CRA treat
+          # every pre-existing ESLint warning in this codebase as a fatal
+          # build error (confirmed: this is exactly what broke this job).
+          CI: false
+
+  docker-build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - name: backend
+            context: ./Backend
+          - name: authservice
+            context: ./AuthService
+          - name: frontend
+            context: ./Frontend/Swiggy_Clone
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build ${{ matrix.name }} image (not pushed — build-only check)
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          push: false
+          tags: swiggy-${{ matrix.name }}:ci

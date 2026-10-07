@@ -1,0 +1,38 @@
+# Backend runtime dependencies (Python 3.13)
+# Install:  pip install -r Backend/requirements.txt
+#
+# Full pinned closure: direct deps this project imports, plus every
+# transitive package they require, so a fresh environment reproduces
+# exactly what this repo runs against.
+
+# --- Direct dependencies ---
+fastapi==0.141.1           # main.py
+uvicorn[standard]==0.52.4  # dev server (uvicorn main:app --reload)
+pydantic==2.13.4           # core/schemas.py
+SQLAlchemy==2.0.49         # core/database.py, core/models.py
+psycopg2-binary==2.9.12    # PostgreSQL driver (core/database.py)
+redis==8.1.0               # core/redis_client.py, middleware/rate_limit.py
+PyJWT==2.14.0               # core/auth.py - verifies tokens from AuthService
+alembic==1.20.0             # alembic/ - versioned, rollback-capable schema migrations
+
+# --- Transitive dependencies (resolved) ---
+annotated-doc==0.0.5
+annotated-types==0.8.0
+anyio==4.14.2
+click==8.1.7
+colorama==0.4.6
+greenlet==3.3.2
+h11==0.16.0
+idna==3.19
+Mako==1.4.3
+pydantic_core==2.46.4
+starlette==1.6.0
+typing-inspection==0.4.4
+typing_extensions==4.15.0
+
+# --- Pulled in by uvicorn[standard] extras ---
+httptools==0.8.0
+python-dotenv==1.2.3
+PyYAML==6.0.3
+watchfiles==1.2.0
+websockets==17.1

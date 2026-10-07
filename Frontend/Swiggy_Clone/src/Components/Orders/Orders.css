@@ -1,0 +1,94 @@
+.orders_page {
+  max-width: 700px;
+  margin: 0 auto;
+  padding: 130px 20px 60px;
+}
+
+.orders_filter {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  margin-bottom: 30px;
+  flex-wrap: wrap;
+}
+
+.orders_filter label {
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+  color: gray;
+}
+
+.orders_filter input {
+  padding: 8px;
+  border: 1px solid lightgray;
+  outline: none;
+  margin-top: 4px;
+}
+
+.orders_filter button {
+  padding: 9px 18px;
+  background-color: #fc8019;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.orders_error {
+  color: #d0021b;
+}
+
+.order_card {
+  border: 1px solid lightgray;
+  border-radius: 6px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.order_card_header {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 600;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.order_item_line {
+  display: flex;
+  justify-content: space-between;
+  color: #555;
+  font-size: 14px;
+  padding: 4px 0;
+}
+
+.order_status {
+  margin-top: 10px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.order_status_cancelled {
+  color: #d0021b;
+}
+
+.order_status_delivered {
+  color: #2e7d32;
+}
+
+.cancel_order_btn {
+  margin-top: 12px;
+  padding: 8px 16px;
+  background-color: #fff;
+  color: #d0021b;
+  border: 1px solid #d0021b;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.cancel_order_btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

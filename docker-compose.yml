@@ -1,0 +1,73 @@
+# Local orchestration for all five pieces of the stack. For a first run:
+#   docker compose up --build
+# Then open http://localhost:3000
+#
+# Override any of these with a repo-root .env file (see .env.example) —
+# the JWT_SECRET default below is fine for a local demo but should be a
+# real generated value for anything reachable outside your machine.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: swiggy_user
+      POSTGRES_PASSWORD: "12345"
+      POSTGRES_DB: swiggy_clone
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U swiggy_user -d swiggy_clone"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  backend:
+    build:
+      context: ./Backend
+    environment:
+      DATABASE_URL: postgresql://swiggy_user:12345@postgres:5432/swiggy_clone
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      CORS_ORIGINS: ${PUBLIC_FRONTEND_URL:-http://localhost:3000}
+      JWT_SECRET: ${JWT_SECRET:-3680007c9f90e7b853a37f93ae37feb010e234eebf079e2750c0130f94dcc79c}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  authservice:
+    build:
+      context: ./AuthService
+    environment:
+      DATABASE_URL: postgresql://swiggy_user:12345@postgres:5432/swiggy_clone?schema=auth
+      JWT_SECRET: ${JWT_SECRET:-3680007c9f90e7b853a37f93ae37feb010e234eebf079e2750c0130f94dcc79c}
+      JWT_EXPIRES_IN: 1h
+      PORT: "4000"
+      CORS_ORIGINS: ${PUBLIC_FRONTEND_URL:-http://localhost:3000}
+    ports:
+      - "4000:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./Frontend/Swiggy_Clone
+      args:
+        REACT_APP_API_URL: ${PUBLIC_API_URL:-http://localhost:8000}
+        REACT_APP_AUTH_URL: ${PUBLIC_AUTH_URL:-http://localhost:4000}
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+      - authservice
+
+volumes:
+  postgres_data:

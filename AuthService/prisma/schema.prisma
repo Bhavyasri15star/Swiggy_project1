@@ -1,0 +1,35 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+// DATABASE_URL carries ?schema=auth, so Prisma creates and manages this
+// table under a dedicated "auth" schema inside swiggy_clone — isolated
+// from the restaurants/items tables the FastAPI backend owns in "public".
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  createdAt    DateTime @default(now())
+
+  @@map("users")
+}
+
+// Passwordless login: a 6-digit code emailed to the user (via Brevo), valid
+// for 10 minutes, single-use. Not tied to an existing User — the account is
+// created on first successful verify, same as how phone-OTP apps work.
+model EmailOtp {
+  id        String   @id @default(uuid())
+  email     String
+  code      String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([email])
+  @@map("email_otps")
+}
